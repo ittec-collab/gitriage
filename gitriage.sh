@@ -237,10 +237,20 @@ DATE_RANGE=""
 [ -z "$DATE_RANGE" ] && DATE_RANGE="all time"
 
 # ─── Helpers ─────────────────────────────────────────────────────────
+_hash6() {
+  if command -v md5sum >/dev/null 2>&1; then
+    printf '%s' "$1" | md5sum | cut -c1-6
+  elif command -v md5 >/dev/null 2>&1; then
+    printf '%s' "$1" | md5 -q | cut -c1-6
+  else
+    printf '%s' "$1" | cksum | cut -c1-6
+  fi
+}
+
 html_escape() {
   local s="$1"
   if [ "$ANONYMIZE" = true ]; then
-    s="anon-$(printf '%s' "$s" | md5sum | cut -c1-6)"
+    s="anon-$(_hash6 "$s")"
   fi
   if [ "$REDACT_EMAILS" = true ]; then
     s=$(printf '%s' "$s" | sed 's/<[^>]*>//g')
