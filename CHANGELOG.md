@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Hours estimation now uses a weighted formula:
+  `hours = 0.3×(days×5) + 0.2×(commits×1.5) + 0.5×(lines/500)`
+- Hours and payment columns display single values (no ranges)
+- Minimum hour floor reduced from 4 to 1
+
+### Fixed
+- PR detection now catches squash merges (`Title (#123)`)
+- Revert detection now catches `revert:` prefix (case-insensitive)
+
+
 ## [2.0.0] - 2026-10-02
 
 ### Added
