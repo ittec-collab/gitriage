@@ -107,12 +107,12 @@ HTML
       if [ -z "$author" ]; then continue; fi
       local net=${AUTHOR_NET[$author]}
       local days=${AUTHOR_DAYS[$author]}
-      local h_low=$((days * HOURS_LOW))
-      local h_high=$((days * HOURS_HIGH))
-      local pay_low=$((h_low * RATE))
-      local pay_high=$((h_high * RATE))
-      local share
-      share=$(awk -v n="$net" -v t="$TOTAL_NET" 'BEGIN { printf "%.1f", (n/t)*100 }')
+      local commits=${AUTHOR_COMMITS[$author]}
+      local files=${AUTHOR_FILES[$author]}
+      local hours pay_low share
+      hours=${AUTHOR_HOURS[$author]}
+      pay_low=$((hours * RATE))
+      share=$(awk -v n="$net" -v tn="$TOTAL_NET" -v c="$commits" -v tc="$TOTAL_COMMITS" -v f="$files" -v tf="$TOTAL_FILES" 'BEGIN { ns=(tn>0)?n/tn:0; cs=(tc>0)?c/tc:0; fs=(tf>0)?f/tf:0; printf "%.1f", (0.5*ns+0.3*cs+0.2*fs)*100 }')
       local bar_width
       bar_width=$(awk -v s="$share" 'BEGIN { printf "%.0f", s * 2 }')
       if [ "$bar_width" -lt 4 ]; then bar_width=4; fi
@@ -123,8 +123,8 @@ HTML
           <td class="num">$(format_number "$net")</td>
           <td class="num share">${share}%</td>
           <td><span class="bar" style="width:${bar_width}px"></span></td>
-          <td class="num">${h_low}–${h_high}</td>
-          <td class="num pay">$(format_number "$pay_low") – $(format_number "$pay_high")</td>
+          <td class="num">${hours}</td>
+          <td class="num pay">$(format_number "$pay_low")</td>
         </tr>
 ROW
     done <<< "$SORTED_AUTHORS"
@@ -307,7 +307,7 @@ write_json_report() {
   echo "  \"date_range\": \"$(json_escape "$DATE_RANGE")\","
   echo "  \"rate\": $RATE,"
   echo "  \"currency\": \"$(json_escape "$CURRENCY")\","
-  echo "  \"hours_per_day\": { \"low\": $HOURS_LOW, \"high\": $HOURS_HIGH },"
+  
   echo "  \"totals\": { \"commits\": $TOTAL_COMMITS, \"net_lines\": $TOTAL_NET, \"added\": $TOTAL_ADD, \"deleted\": $TOTAL_DEL, \"prs\": $TOTAL_PRS, \"reverts\": $TOTAL_REVERTS },"
   echo "  \"authors\": ["
   local first=1
@@ -317,17 +317,17 @@ write_json_report() {
     first=0
     local net=${AUTHOR_NET[$author]}
     local days=${AUTHOR_DAYS[$author]}
-    local h_low=$((days * HOURS_LOW))
-    local h_high=$((days * HOURS_HIGH))
-    local pay_low=$((h_low * RATE))
-    local pay_high=$((h_high * RATE))
-    local share
-    share=$(awk -v n="$net" -v t="$TOTAL_NET" 'BEGIN { printf "%.2f", (n/t)*100 }')
-    printf '    {"name":"%s","commits":%d,"added":%d,"deleted":%d,"net":%d,"files":%d,"active_days":%d,"first_commit":"%s","last_commit":"%s","share_percent":%s,"est_hours":{"low":%d,"high":%d},"est_payment":{"low":%d,"high":%d},"prs":%d,"reverts":%d,"commit_types":"%s","languages":"%s"}' \
+    local commits=${AUTHOR_COMMITS[$author]}
+    local files=${AUTHOR_FILES[$author]}
+    local hours pay_low share
+    hours=${AUTHOR_HOURS[$author]}
+    pay_low=$((hours * RATE))
+    share=$(awk -v n="$net" -v tn="$TOTAL_NET" -v c="$commits" -v tc="$TOTAL_COMMITS" -v f="$files" -v tf="$TOTAL_FILES" 'BEGIN { ns=(tn>0)?n/tn:0; cs=(tc>0)?c/tc:0; fs=(tf>0)?f/tf:0; printf "%.1f", (0.5*ns+0.3*cs+0.2*fs)*100 }')
+    printf '    {"name":"%s","commits":%d,"added":%d,"deleted":%d,"net":%d,"files":%d,"active_days":%d,"first_commit":"%s","last_commit":"%s","share_percent":%s,"est_hours":%d,"est_payment":%d,"prs":%d,"reverts":%d,"commit_types":"%s","languages":"%s"}' \
       "$(json_escape "$author")" "${AUTHOR_COMMITS[$author]}" "${AUTHOR_ADD[$author]}" \
       "${AUTHOR_DEL[$author]}" "$net" "${AUTHOR_FILES[$author]}" "$days" \
       "${AUTHOR_FIRST[$author]}" "${AUTHOR_LAST[$author]}" "$share" \
-      "$h_low" "$h_high" "$pay_low" "$pay_high" \
+      "$hours" "$pay_low" \
       "${AUTHOR_PRS[$author]}" "${AUTHOR_REVERTS[$author]}" \
       "${AUTHOR_TYPES[$author]}" "${AUTHOR_LANGS[$author]}"
   done <<< "$SORTED_AUTHORS"
@@ -338,18 +338,18 @@ write_json_report() {
 
 # ─── CSV Report ──────────────────────────────────────────────────────
 write_csv_report() {
-  echo "author,commits,added,deleted,net,files,active_days,first_commit,last_commit,share_percent,est_hours_low,est_hours_high,est_payment_low,est_payment_high,prs,reverts,currency"
+  echo "author,commits,added,deleted,net,files,active_days,first_commit,last_commit,share_percent,est_hours,est_payment,prs,reverts,currency"
   while IFS= read -r author; do
     if [ -z "$author" ]; then continue; fi
     local net=${AUTHOR_NET[$author]}
     local days=${AUTHOR_DAYS[$author]}
-    local h_low=$((days * HOURS_LOW))
-    local h_high=$((days * HOURS_HIGH))
-    local pay_low=$((h_low * RATE))
-    local pay_high=$((h_high * RATE))
-    local share
-    share=$(awk -v n="$net" -v t="$TOTAL_NET" 'BEGIN { printf "%.2f", (n/t)*100 }')
-    echo "\"$author\",${AUTHOR_COMMITS[$author]},${AUTHOR_ADD[$author]},${AUTHOR_DEL[$author]},$net,${AUTHOR_FILES[$author]},$days,${AUTHOR_FIRST[$author]},${AUTHOR_LAST[$author]},$share,$h_low,$h_high,$pay_low,$pay_high,${AUTHOR_PRS[$author]},${AUTHOR_REVERTS[$author]},\"$CURRENCY\""
+    local commits=${AUTHOR_COMMITS[$author]}
+    local files=${AUTHOR_FILES[$author]}
+    local hours pay_low share
+    hours=${AUTHOR_HOURS[$author]}
+    pay_low=$((hours * RATE))
+    share=$(awk -v n="$net" -v tn="$TOTAL_NET" -v c="$commits" -v tc="$TOTAL_COMMITS" -v f="$files" -v tf="$TOTAL_FILES" 'BEGIN { ns=(tn>0)?n/tn:0; cs=(tc>0)?c/tc:0; fs=(tf>0)?f/tf:0; printf "%.1f", (0.5*ns+0.3*cs+0.2*fs)*100 }')
+    echo "\"$author\",${AUTHOR_COMMITS[$author]},${AUTHOR_ADD[$author]},${AUTHOR_DEL[$author]},$net,${AUTHOR_FILES[$author]},$days,${AUTHOR_FIRST[$author]},${AUTHOR_LAST[$author]},$share,$hours,$pay_low,${AUTHOR_PRS[$author]},${AUTHOR_REVERTS[$author]},\"$CURRENCY\""
   done <<< "$SORTED_AUTHORS"
 }
 
@@ -367,13 +367,13 @@ write_markdown_report() {
     if [ -z "$author" ]; then continue; fi
     local net=${AUTHOR_NET[$author]}
     local days=${AUTHOR_DAYS[$author]}
-    local h_low=$((days * HOURS_LOW))
-    local h_high=$((days * HOURS_HIGH))
-    local pay_low=$((h_low * RATE))
-    local pay_high=$((h_high * RATE))
-    local share
-    share=$(awk -v n="$net" -v t="$TOTAL_NET" 'BEGIN { printf "%.1f", (n/t)*100 }')
-    echo "| ${author} | ${AUTHOR_COMMITS[$author]} | +${AUTHOR_ADD[$author]} | −${AUTHOR_DEL[$author]} | ${net} | ${AUTHOR_FILES[$author]} | ${days} | ${share}% | ${h_low}–${h_high} | ${pay_low} – ${pay_high} |"
+    local commits=${AUTHOR_COMMITS[$author]}
+    local files=${AUTHOR_FILES[$author]}
+    local hours pay_low share
+    hours=${AUTHOR_HOURS[$author]}
+    pay_low=$((hours * RATE))
+    share=$(awk -v n="$net" -v tn="$TOTAL_NET" -v c="$commits" -v tc="$TOTAL_COMMITS" -v f="$files" -v tf="$TOTAL_FILES" 'BEGIN { ns=(tn>0)?n/tn:0; cs=(tc>0)?c/tc:0; fs=(tf>0)?f/tf:0; printf "%.1f", (0.5*ns+0.3*cs+0.2*fs)*100 }')
+    echo "| ${author} | ${AUTHOR_COMMITS[$author]} | +${AUTHOR_ADD[$author]} | −${AUTHOR_DEL[$author]} | ${net} | ${AUTHOR_FILES[$author]} | ${days} | ${share}% | ${hours} | ${pay_low} |"
   done <<< "$SORTED_AUTHORS"
   echo ""
   echo "## Commit Types"

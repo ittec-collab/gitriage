@@ -10,7 +10,7 @@ language breakdown, work patterns, PR detection, payment estimation, and more.
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Bash](https://img.shields.io/badge/bash-4.0%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macOS-lightgrey.svg)](#requirements)
-[![Version](https://img.shields.io/badge/version-2.0.0-orange.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.1.0-orange.svg)](CHANGELOG.md)
 
 </div>
 
@@ -46,7 +46,7 @@ language breakdown, work patterns, PR detection, payment estimation, and more.
 - **Language detection** — top file extensions per author
 - **PR & revert detection** — from merge and revert message patterns
 - **Work patterns** — top weekdays and hours per contributor
-- **Payment estimation** — configurable rate, currency, hours per day
+- **Payment estimation** — configurable rate and currency
 - **Privacy controls** — `--anonymize` and `--redact-emails`
 - **Works on any git host** — GitHub, GitLab, Bitbucket, Gitea, local repos
 
@@ -162,8 +162,9 @@ gitriage [OPTIONS]
 |---|---|
 | `-r, --rate <NUMBER>` | Hourly rate (default: `50`) |
 | `-c, --currency <LABEL>` | Currency label, e.g. `USD`, `EUR`, `BTC` (default: `USD`) |
-| `--hours-low <N>` | Minimum hours per active day (default: `4`) |
-| `--hours-high <N>` | Maximum hours per active day (default: `7`) |
+
+**Hours estimation:** `hours = commits × HOURS_PER_COMMIT` (default `3`).
+Edit `HOURS_PER_COMMIT` at the top of `gitriage.sh` to tune the multiplier.
 
 ### Output
 
@@ -294,8 +295,8 @@ Fast terminal-friendly output:
 ### Pipe JSON into jq
 
 ```bash
-# Total payment range across the team
-./gitriage.sh -f json | jq '[.authors[].est_payment.high] | add'
+# Total payment across the team
+./gitriage.sh -f json | jq '[.authors[].est_payment] | add'
 
 # Sort authors by commits
 ./gitriage.sh -f json | jq -r '.authors | sort_by(.commits) | reverse[] | "\(.name): \(.commits)"'
@@ -351,12 +352,13 @@ reports that shouldn't leak contact info.
 2. **Parse** — extracts commits, dates, authors, file paths via `git log --numstat`
 3. **Filter** — excludes generated files (lockfiles, coverage, minified, binaries)
 4. **Aggregate** — builds per-author maps of commits, lines, files, types, languages
-5. **Estimate** — computes share, hours range (active days × hours/day), and payment
+5. **Estimate** — computes share and payment (hours = commits × HOURS_PER_COMMIT)
 6. **Render** — writes the chosen output format
 
 > **Time estimation is approximate.** Git does not record time spent — only
-> commit timestamps. The tool assumes 4–7 working hours per active day
-> (configurable via `--hours-low` / `--hours-high`). Use a time tracker for
+> commit timestamps. The tool assumes `HOURS_PER_COMMIT` (default 3) hours
+> of work per commit, which is a rough proxy and can skew if contributors
+> make many small commits or few large ones. Use a time tracker for
 > precise billing.
 
 ### Excluded files

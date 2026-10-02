@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-VERSION="2.0.0"
+VERSION="2.1.0"
 PROG_NAME="$(basename "$0")"
 # Resolve symlinks so SCRIPT_DIR points to the real install location
 SOURCE="${BASH_SOURCE[0]}"
@@ -18,8 +18,8 @@ SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 # ─── Defaults ────────────────────────────────────────────────────────
 RATE=50
 CURRENCY="USD"
-HOURS_LOW=4
-HOURS_HIGH=7
+# Hours per commit — the single knob to tune
+HOURS_PER_COMMIT=3
 FORMAT="html"
 REPO="."
 OUTPUT="report.html"
@@ -53,8 +53,6 @@ FILTERING:
 RATES & ESTIMATION:
     -r, --rate <NUMBER>        Hourly rate (default: ${RATE})
     -c, --currency <LABEL>     Currency label (default: ${CURRENCY})
-        --hours-low <N>        Min hours per active day (default: ${HOURS_LOW})
-        --hours-high <N>       Max hours per active day (default: ${HOURS_HIGH})
 
 OUTPUT:
     -f, --format <FMT>         html | json | csv | markdown | text (default: ${FORMAT})
@@ -88,8 +86,6 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     -r|--rate)          RATE="$2"; shift 2 ;;
     -c|--currency)      CURRENCY="$2"; shift 2 ;;
-    --hours-low)        HOURS_LOW="$2"; shift 2 ;;
-    --hours-high)       HOURS_HIGH="$2"; shift 2 ;;
     -f|--format)        FORMAT="$2"; shift 2 ;;
     -d|--dir)           REPO="$2"; shift 2 ;;
     -o|--output)        OUTPUT="$2"; shift 2 ;;
@@ -131,7 +127,7 @@ fi
 declare -A AUTHOR_NET AUTHOR_COMMITS AUTHOR_DAYS AUTHOR_FIRST AUTHOR_LAST
 declare -A AUTHOR_FILES AUTHOR_ADD AUTHOR_DEL
 declare -A AUTHOR_TYPES AUTHOR_LANGS AUTHOR_PRS AUTHOR_REVERTS
-declare -A AUTHOR_WEEKDAY AUTHOR_HOUR
+declare -A AUTHOR_WEEKDAY AUTHOR_HOUR AUTHOR_HOURS
 
 TOTAL_COMMITS=0
 TOTAL_NET=0
@@ -139,6 +135,7 @@ TOTAL_ADD=0
 TOTAL_DEL=0
 TOTAL_PRS=0
 TOTAL_REVERTS=0
+TOTAL_FILES=0
 
 # Collect authors (respecting mailmap if present)
 if [ -f .mailmap ]; then
@@ -180,6 +177,10 @@ while IFS= read -r author; do
   files=$(echo "$stats" | cut -d' ' -f3)
   net=$((add + del))
 
+  # Hours estimate: commits × HOURS_PER_COMMIT
+  hours=$(awk -v c="$commits" -v hpc="$HOURS_PER_COMMIT" 'BEGIN { h = c * hpc; if (h < 1) h = 1; printf "%d", h }')
+  AUTHOR_HOURS["$author"]=$hours
+
   AUTHOR_NET["$author"]=$net
   AUTHOR_COMMITS["$author"]=$commits
   AUTHOR_DAYS["$author"]=$days
@@ -193,6 +194,7 @@ while IFS= read -r author; do
   TOTAL_NET=$((TOTAL_NET + net))
   TOTAL_ADD=$((TOTAL_ADD + add))
   TOTAL_DEL=$((TOTAL_DEL + del))
+  TOTAL_FILES=$((TOTAL_FILES + files))
 
   # Commit type breakdown (conventional commits)
   types=$(git log "${GIT_FILTER[@]}" --author="$author" --format="%s" \
@@ -208,9 +210,9 @@ while IFS= read -r author; do
 
   # PR and revert detection
   prs=$(git log "${GIT_FILTER[@]}" --author="$author" --format="%s" \
-    | grep -cP '^Merge pull request|^Merge branch' || true)
+    | grep -cP '^Merge pull request|^Merge branch|\(#[0-9]+\)[[:space:]]*$' || true)
   reverts=$(git log "${GIT_FILTER[@]}" --author="$author" --format="%s" \
-    | grep -cP '^Revert ' || true)
+    | grep -cP '^[Rr]evert[ :]' || true)
   AUTHOR_PRS["$author"]=$prs
   AUTHOR_REVERTS["$author"]=$reverts
   TOTAL_PRS=$((TOTAL_PRS + prs))

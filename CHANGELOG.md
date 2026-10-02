@@ -5,17 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.1.0] - 2026-10-03
 
 ### Changed
-- Hours estimation now uses a weighted formula:
-  `hours = 0.3×(days×5) + 0.2×(commits×1.5) + 0.5×(lines/500)`
-- Hours and payment columns display single values (no ranges)
-- Minimum hour floor reduced from 4 to 1
+- Hours estimation now uses `commits × HOURS_PER_COMMIT` (default 3)
+- Removed `--hours-low` and `--hours-high` CLI flags
+- Removed arbitrary weight constants (DAYS/COMMIT/LINES_WEIGHT)
+- Single-value display for hours and payment
+- Bump internal version to 2.1.0
 
 ### Fixed
 - PR detection now catches squash merges (`Title (#123)`)
-- Revert detection now catches `revert:` prefix (case-insensitive)
+- Revert detection catches `revert:` prefix
 
 
 ## [2.0.0] - 2026-10-02
