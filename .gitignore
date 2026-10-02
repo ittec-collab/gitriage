@@ -1,0 +1,25 @@
+# Generated reports
+report.html
+report.json
+report.csv
+report.md
+*.report.html
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local env
+.env
+.env.local
+.venv/
+venv/
+
+# Logs
+*.log
